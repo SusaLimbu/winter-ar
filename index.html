@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Winter AR</title>
+
+    <!-- A-Frame (3D in the browser) -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+    <!-- AR.js for A-Frame (WebAR, hit-testing / ground placement) -->
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+
+    <script>
+      // This component lets us tap the screen to place an object on the ground.
+      AFRAME.registerComponent("tap-to-place", {
+        init: function () {
+          // sceneEl = the <a-scene> element
+          const scene = this.el.sceneEl;
+
+          // When user taps/clicks anywhere, place the selected object
+          scene.addEventListener("click", (evt) => {
+            // evt.detail.intersection is provided by the cursor/raycaster
+            // It tells us where the ray hit the ground.
+            const hit = evt.detail && evt.detail.intersection;
+            if (!hit) return;
+
+            // Read which object type to place from a dropdown (snowman or tree)
+            const choice = document.getElementById("choice").value;
+
+            // Create a new entity (a 3D object container)
+            const placed = document.createElement("a-entity");
+
+            // Put the entity at the hit point on the ground plane
+            placed.setAttribute("position", hit.point);
+
+            // Add either a snowman or a tree as children of that entity
+            if (choice === "snowman") {
+              placed.appendChild(makeSnowman());
+            } else {
+              placed.appendChild(makeTree());
+            }
+
+            // Add it to the scene so it becomes visible
+            scene.appendChild(placed);
+          });
+        },
+      });
+
+      // Build a snowman from 3 spheres + a small cone for the nose
+      function makeSnowman() {
+        const snowman = document.createElement("a-entity");
+
+        // Bottom sphere
+        snowman.appendChild(sphere({ y: 0.25, r: 0.25, color: "#FFFFFF" }));
+        // Middle sphere
+        snowman.appendChild(sphere({ y: 0.55, r: 0.18, color: "#FFFFFF" }));
+        // Head sphere
+        snowman.appendChild(sphere({ y: 0.78, r: 0.12, color: "#FFFFFF" }));
+
+        // Nose (cone)
+        const nose = document.createElement("a-cone");
+        nose.setAttribute("radius-bottom", "0.02");
+        nose.setAttribute("radius-top", "0.001");
+        nose.setAttribute("height", "0.08");
+        nose.setAttribute("color", "#FF8C00");
+        nose.setAttribute("position", "0 0.78 0.12");
+        nose.setAttribute("rotation", "90 0 0");
+        snowman.appendChild(nose);
+
+        return snowman;
+      }
+
+      // Build a pine tree from a cylinder trunk + 2 cones
+      function makeTree() {
+        const tree = document.createElement("a-entity");
+
+        // Trunk (cylinder)
+        const trunk = document.createElement("a-cylinder");
+        trunk.setAttribute("radius", "0.05");
+        trunk.setAttribute("height", "0.25");
+        trunk.setAttribute("color", "#8B5A2B");
+        trunk.setAttribute("position", "0 0.125 0");
+        tree.appendChild(trunk);
+
+        // Lower leaves cone
+        const cone1 = document.createElement("a-cone");
+        cone1.setAttribute("radius-bottom", "0.22");
+        cone1.setAttribute("radius-top", "0.001");
+        cone1.setAttribute("height", "0.35");
+        cone1.setAttribute("color", "#1E7A34");
+        cone1.setAttribute("position", "0 0.45 0");
+        tree.appendChild(cone1);
+
+        // Upper leaves cone
+        const cone2 = document.createElement("a-cone");
+        cone2.setAttribute("radius-bottom", "0.16");
+        cone2.setAttribute("radius-top", "0.001");
+        cone2.setAttribute("height", "0.28");
+        cone2.setAttribute("color", "#1B6B2E");
+        cone2.setAttribute("position", "0 0.65 0");
+        tree.appendChild(cone2);
+
+        return tree;
+      }
+
+      // Helper to make spheres quickly
+      function sphere({ y, r, color }) {
+        const s = document.createElement("a-sphere");
+        s.setAttribute("radius", r);
+        s.setAttribute("color", color);
+        s.setAttribute("position", `0 ${y} 0`);
+        return s;
+      }
+    </script>
+
+    <style>
+      /* Simple UI overlay */
+      #ui {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        display: flex;
+        gap: 10px;
+        z-index: 9999;
+      }
+      select {
+        font-size: 16px;
+        padding: 8px;
+      }
+      .hint {
+        position: fixed;
+        left: 10px;
+        bottom: 10px;
+        background: rgba(0, 0, 0, 0.55);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        z-index: 9999;
+        font-family: system-ui, sans-serif;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Small UI to pick what you place -->
+    <div id="ui">
+      <select id="choice">
+        <option value="snowman">Snowman</option>
+        <option value="tree">Pine tree</option>
+      </select>
+    </div>
+
+    <div class="hint">Tap the floor/desk to place the selected object.</div>
+
+    <!-- The AR scene -->
+    <a-scene
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false;"
+      renderer="colorManagement: true;"
+      tap-to-place
+    >
+      <!-- Camera + cursor ray: makes click events include ground intersection -->
+      <a-camera>
+        <a-cursor raycaster="objects: .ground"></a-cursor>
+      </a-camera>
+
+      <!-- A big invisible horizontal plane (AR engine treats it as ground target in view) -->
+      <a-plane
+        class="ground"
+        rotation="-90 0 0"
+        width="50"
+        height="50"
+        material="opacity: 0.0; transparent: true;"
+      ></a-plane>
+
+      <!-- A little light so objects look nicer -->
+      <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+      <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
+    </a-scene>
+  </body>
+</html>
