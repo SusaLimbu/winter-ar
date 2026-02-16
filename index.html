@@ -1,182 +1,151 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
     <title>Winter AR</title>
 
-    <!-- A-Frame (3D in the browser) -->
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-    <!-- AR.js for A-Frame (WebAR, hit-testing / ground placement) -->
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
 
     <script>
-      // This component lets us tap the screen to place an object on the ground.
-      AFRAME.registerComponent("tap-to-place", {
-        init: function () {
-          // sceneEl = the <a-scene> element
-          const scene = this.el.sceneEl;
+      // Keeps the shadow plane under the currently selected object group
+      AFRAME.registerComponent("follow-shadow", {
+        schema: { type: "selector" },
+        init() {
+          this.el.object3D.renderOrder = -1;
+        },
+        tick() {
+          if (this.data) {
+            this.el.object3D.position.copy(this.data.object3D.position);
+            this.el.object3D.position.y -= 0.001; // avoids flickering (z-fighting)
+          }
+        },
+      });
 
-          // When user taps/clicks anywhere, place the selected object
-          scene.addEventListener("click", (evt) => {
-            // evt.detail.intersection is provided by the cursor/raycaster
-            // It tells us where the ray hit the ground.
+      // Tap anywhere to place the objects group on the ground hit position
+      AFRAME.registerComponent("tap-to-place", {
+        schema: { target: { type: "selector" } }, // the entity we move when tapping
+        init() {
+          // Listen for taps/clicks on the scene
+          this.el.sceneEl.addEventListener("click", (evt) => {
+            // Hit-test intersection point from the AR ground plane
             const hit = evt.detail && evt.detail.intersection;
             if (!hit) return;
 
-            // Read which object type to place from a dropdown (snowman or tree)
-            const choice = document.getElementById("choice").value;
-
-            // Create a new entity (a 3D object container)
-            const placed = document.createElement("a-entity");
-
-            // Put the entity at the hit point on the ground plane
-            placed.setAttribute("position", hit.point);
-
-            // Add either a snowman or a tree as children of that entity
-            if (choice === "snowman") {
-              placed.appendChild(makeSnowman());
-            } else {
-              placed.appendChild(makeTree());
-            }
-
-            // Add it to the scene so it becomes visible
-            scene.appendChild(placed);
+            // Move the target object group to the tapped position
+            this.data.target.object3D.position.copy(hit.point);
           });
         },
       });
 
-      // Build a snowman from 3 spheres + a small cone for the nose
-      function makeSnowman() {
-        const snowman = document.createElement("a-entity");
+      // Switch between snowman and tree by changing which group is visible
+      AFRAME.registerComponent("switch-object", {
+        init() {
+          const snowman = document.querySelector("#snowman");
+          const tree = document.querySelector("#tree");
 
-        // Bottom sphere
-        snowman.appendChild(sphere({ y: 0.25, r: 0.25, color: "#FFFFFF" }));
-        // Middle sphere
-        snowman.appendChild(sphere({ y: 0.55, r: 0.18, color: "#FFFFFF" }));
-        // Head sphere
-        snowman.appendChild(sphere({ y: 0.78, r: 0.12, color: "#FFFFFF" }));
+          // Start with snowman visible
+          tree.setAttribute("visible", "false");
 
-        // Nose (cone)
-        const nose = document.createElement("a-cone");
-        nose.setAttribute("radius-bottom", "0.02");
-        nose.setAttribute("radius-top", "0.001");
-        nose.setAttribute("height", "0.08");
-        nose.setAttribute("color", "#FF8C00");
-        nose.setAttribute("position", "0 0.78 0.12");
-        nose.setAttribute("rotation", "90 0 0");
-        snowman.appendChild(nose);
+          document.querySelector("#btnSnowman").addEventListener("click", () => {
+            snowman.setAttribute("visible", "true");
+            tree.setAttribute("visible", "false");
+          });
 
-        return snowman;
-      }
-
-      // Build a pine tree from a cylinder trunk + 2 cones
-      function makeTree() {
-        const tree = document.createElement("a-entity");
-
-        // Trunk (cylinder)
-        const trunk = document.createElement("a-cylinder");
-        trunk.setAttribute("radius", "0.05");
-        trunk.setAttribute("height", "0.25");
-        trunk.setAttribute("color", "#8B5A2B");
-        trunk.setAttribute("position", "0 0.125 0");
-        tree.appendChild(trunk);
-
-        // Lower leaves cone
-        const cone1 = document.createElement("a-cone");
-        cone1.setAttribute("radius-bottom", "0.22");
-        cone1.setAttribute("radius-top", "0.001");
-        cone1.setAttribute("height", "0.35");
-        cone1.setAttribute("color", "#1E7A34");
-        cone1.setAttribute("position", "0 0.45 0");
-        tree.appendChild(cone1);
-
-        // Upper leaves cone
-        const cone2 = document.createElement("a-cone");
-        cone2.setAttribute("radius-bottom", "0.16");
-        cone2.setAttribute("radius-top", "0.001");
-        cone2.setAttribute("height", "0.28");
-        cone2.setAttribute("color", "#1B6B2E");
-        cone2.setAttribute("position", "0 0.65 0");
-        tree.appendChild(cone2);
-
-        return tree;
-      }
-
-      // Helper to make spheres quickly
-      function sphere({ y, r, color }) {
-        const s = document.createElement("a-sphere");
-        s.setAttribute("radius", r);
-        s.setAttribute("color", color);
-        s.setAttribute("position", `0 ${y} 0`);
-        return s;
-      }
+          document.querySelector("#btnTree").addEventListener("click", () => {
+            snowman.setAttribute("visible", "false");
+            tree.setAttribute("visible", "true");
+          });
+        },
+      });
     </script>
 
     <style>
-      /* Simple UI overlay */
+      /* Simple overlay UI */
       #ui {
         position: fixed;
-        left: 10px;
-        right: 10px;
         top: 10px;
-        display: flex;
-        gap: 10px;
-        z-index: 9999;
-      }
-      select {
-        font-size: 16px;
-        padding: 8px;
-      }
-      .hint {
-        position: fixed;
         left: 10px;
-        bottom: 10px;
-        background: rgba(0, 0, 0, 0.55);
-        color: white;
-        padding: 10px;
-        border-radius: 8px;
         z-index: 9999;
-        font-family: system-ui, sans-serif;
+        display: flex;
+        gap: 8px;
+      }
+      button {
+        font-size: 14px;
+        padding: 8px 10px;
       }
     </style>
   </head>
 
   <body>
-    <!-- Small UI to pick what you place -->
+    <!-- Simple buttons to choose what to place -->
     <div id="ui">
-      <select id="choice">
-        <option value="snowman">Snowman</option>
-        <option value="tree">Pine tree</option>
-      </select>
+      <button id="btnSnowman">Snowman</button>
+      <button id="btnTree">Pine tree</button>
     </div>
 
-    <div class="hint">Tap the floor/desk to place the selected object.</div>
-
-    <!-- The AR scene -->
     <a-scene
-      embedded
-      arjs="sourceType: webcam; debugUIEnabled: false;"
-      renderer="colorManagement: true;"
-      tap-to-place
+      reflection="directionalLight: a-light[type=directional]"
+      ar-hit-test="target: #objects;"
+      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
+      shadow="type: pcfsoft"
+      xr-mode-ui="XRMode: xr"
+      tap-to-place="target: #objects"
+      switch-object
     >
-      <!-- Camera + cursor ray: makes click events include ground intersection -->
-      <a-camera>
-        <a-cursor raycaster="objects: .ground"></a-cursor>
-      </a-camera>
+      <!-- Light that can cast shadows -->
+      <a-light
+        type="directional"
+        light="castShadow:true;"
+        position="1 1 1"
+        intensity="1.2"
+        shadow-camera-automatic="#objects"
+      ></a-light>
 
-      <!-- A big invisible horizontal plane (AR engine treats it as ground target in view) -->
+      <!-- Camera (WebXR AR uses your device camera when you press AR) -->
+      <a-camera position="0 0.4 0"></a-camera>
+
+      <!-- This is the GROUP we move around when tapping -->
+      <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
+        <!-- SNOWMAN -->
+        <a-entity id="snowman" position="0 0 0">
+          <a-sphere radius="0.6" color="#ffffff" position="0 0.6 0"></a-sphere>
+          <a-sphere radius="0.45" color="#ffffff" position="0 1.35 0"></a-sphere>
+          <a-sphere radius="0.3" color="#ffffff" position="0 1.9 0"></a-sphere>
+
+          <!-- Nose -->
+          <a-cone
+            color="#ff8c00"
+            radius-bottom="0.06"
+            radius-top="0.001"
+            height="0.18"
+            position="0 1.9 0.32"
+            rotation="90 0 0"
+          ></a-cone>
+        </a-entity>
+
+        <!-- PINE TREE -->
+        <a-entity id="tree" position="0 0 0">
+          <!-- Trunk -->
+          <a-cylinder radius="0.12" height="0.6" color="#8b5a2b" position="0 0.3 0"></a-cylinder>
+          <!-- Leaves -->
+          <a-cone radius-bottom="0.7" radius-top="0.001" height="1.0" color="#1e7a34" position="0 1.1 0"></a-cone>
+          <a-cone radius-bottom="0.5" radius-top="0.001" height="0.8" color="#1b6b2e" position="0 1.55 0"></a-cone>
+        </a-entity>
+      </a-entity>
+
+      <!-- Shadow receiver plane that follows the objects group -->
       <a-plane
-        class="ground"
+        follow-shadow="#objects"
+        material="shader:shadow"
+        shadow="cast:false;"
         rotation="-90 0 0"
-        width="50"
-        height="50"
-        material="opacity: 0.0; transparent: true;"
+        width="2"
+        height="2"
       ></a-plane>
 
-      <!-- A little light so objects look nicer -->
-      <a-entity light="type: ambient; intensity: 0.9"></a-entity>
-      <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
+      <!-- Sky only visible outside AR mode -->
+      <a-sky color="#ECECEC" hide-on-enter-ar></a-sky>
     </a-scene>
   </body>
 </html>
